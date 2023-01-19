@@ -1,0 +1,121 @@
+#!/bin/dash
+
+if ! test -d ".tigger"
+then
+    echo "tigger-rm: error: tigger repository directory .tigger not found" 1>&2
+    exit 1
+fi
+
+# no arg
+if [ $# = 0 ]
+  then
+    echo "usage: tigger-rm [--force] [--cached] <filenames>" 1>&2
+    exit 1
+fi
+
+# marking the flags
+dashCache=false
+dashForce=false
+for arg in "$@"
+do
+    if [ "$arg" = "--cached" ]
+    then
+        dashCache=true
+        continue
+    fi
+    if [ "$arg" = "--force" ]
+    then
+        dashForce=true
+        continue
+    fi
+done
+
+
+# check if files listed in args are in index
+for arg in "$@"
+do 
+    firstCh=$(echo "$arg" | cut -c1-1)
+    if [ "$firstCh" != '-' ] && ! test -f ".tigger/index/$arg"
+    then
+        echo "tigger-rm: error: '$arg' is not in the tigger repository" 1>&2
+        exit 1
+    fi
+done
+
+# commit numbering scheme
+currCommit=0
+while test -d .tigger/"$currCommit"
+do
+    currCommit=$(( currCommit + 1 ))
+done
+currCommit=$(( currCommit - 1 ))
+
+# repo refers the latest commit 
+
+for arg in "$@"
+do 
+    firstChar=$(echo "$arg" | cut -c1-1)
+    if [ "$firstChar" != '-' ]
+    then
+        # --force [--cached]
+        if $dashForce
+        then
+            rm .tigger/index/"$arg"            
+            if test -f "$arg" && ! $dashCache
+            then
+                rm "$arg"
+            fi
+            exit 0
+        fi
+
+        indexRootDiff=false
+        indexRepoDiff=false
+        rootRepoDiff=false
+
+        # exists in root && indexRootDiff
+        if test -f "$arg" && ! diff .tigger/index/"$arg" "$arg" >/dev/null
+        then
+            indexRootDiff=true
+        fi
+
+        # if DNE in repo OR indexRepoDiff, then staged changes in index
+        if ! test -f .tigger/"$currCommit"/"$arg" || ! diff .tigger/index/"$arg" .tigger/"$currCommit"/"$arg" >/dev/null
+        then
+            indexRepoDiff=true
+        fi
+
+        # exists in root and repo, but rootRepoDiff
+        if test -f .tigger/"$currCommit"/"$arg" && test -f "$arg"
+        then
+            if ! diff "$arg" .tigger/"$currCommit"/"$arg" >/dev/null
+            then
+                rootRepoDiff=true
+            fi
+        fi
+
+        # warnings
+        if $indexRootDiff && $indexRepoDiff
+        then
+            echo "tigger-rm: error: '$arg' in index is different to both the working file and the repository" 1>&2
+            exit 1
+        elif $indexRepoDiff && ! $dashCache
+        then
+            echo "tigger-rm: error: '$arg' has staged changes in the index" 1>&2
+            exit 1
+        elif $rootRepoDiff && ! $dashCache
+        then
+            echo "tigger-rm: error: '$arg' in the repository is different to the working file" 1>&2
+            exit 1
+        fi
+        
+        # --cached, removes only from index 
+        rm .tigger/index/"$arg"  
+
+        # no flag, removes from root as well
+        if test -f "$arg" && ! $dashCache 
+        then
+            rm "$arg"
+        fi
+    fi
+done
+

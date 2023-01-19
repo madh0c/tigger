@@ -1,0 +1,75 @@
+#!/bin/dash
+
+if ! test -d ".tigger"
+then
+    echo "tigger-status: error: tigger repository directory .tigger not found" 1>&2
+    exit 1
+fi
+
+# commit numbering scheme
+currCommit=0
+while test -d .tigger/"$currCommit"
+do
+    currCommit=$(( currCommit + 1 ))
+done
+currCommit=$(( currCommit - 1 ))
+
+# list all the files from the curr working dir into "files"
+find . -maxdepth 1 -type f | sed 's/^..//' >files
+sed -i '/files/d' files # remove "files" itself from list
+
+# append files from index to "files"
+find .tigger/index -maxdepth 1 -type f | cut -d'/' -f3 >>files
+
+# append files from repo to "files"
+find .tigger/"$currCommit" -maxdepth 1 -type f | cut -d'/' -f3 >>files
+
+# sort and remove dupes
+sort -u files -o files
+
+while read -r file
+do
+    inIndex=false
+    inRepo=false
+    inRoot=false
+
+    if test -f .tigger/index/"$file"; then inIndex=true; fi
+    if test -f .tigger/"$currCommit"/"$file"; then inRepo=true; fi
+    if test -f "$file"; then inRoot=true; fi
+
+    if $inIndex && $inRepo && $inRoot && ! diff .tigger/index/"$file" .tigger/"$currCommit"/"$file" >/dev/null && ! diff .tigger/index/"$file" "$file" >/dev/null
+    then
+        echo "$file - file changed, different changes staged for commit"
+    elif $inIndex && $inRepo && ! diff .tigger/index/"$file" .tigger/"$currCommit"/"$file" >/dev/null
+    then
+        echo "$file - file changed, changes staged for commit"
+    elif $inRoot && $inRepo && $inIndex
+    then
+        if ! diff "$file" .tigger/"$currCommit"/"$file" >/dev/null
+        then
+            echo "$file - file changed, changes not staged for commit"
+        else
+            echo "$file - same as repo"
+        fi
+    elif $inIndex && $inRoot && diff .tigger/index/"$file" "$file" >/dev/null
+    then
+        echo "$file - added to index"
+    elif $inIndex && $inRoot && ! diff .tigger/index/"$file" "$file" >/dev/null
+    then
+        echo "$file - added to index, file changed"
+    elif $inIndex && ! $inRepo && ! $inRoot
+    then
+        echo "$file - added to index, file deleted"
+    elif $inIndex && $inRepo && ! $inRoot
+    then
+        echo "$file - file deleted"
+    elif $inRepo && ! $inRoot && ! $inIndex
+    then
+        echo "$file - deleted"
+    elif ! $inIndex && $inRoot
+    then
+        echo "$file - untracked"
+    fi
+done <files
+
+rm files

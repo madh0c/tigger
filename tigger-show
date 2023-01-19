@@ -1,0 +1,53 @@
+#!/bin/dash
+
+if ! test -d ".tigger"
+then
+    echo "tigger-show: error: tigger repository directory .tigger not found" 1>&2
+    exit 1
+fi
+
+if [ $# = 0 ]
+  then
+    echo "usage: tigger-show <commit>:<filename>" 1>&2
+    exit 1
+fi
+
+# grab the commit and the filename from arg
+commitNo=$(echo "$1" | grep -E -o "^[0-9]*")
+file=$(echo "$1" | sed 's/^[0-9]*://g')
+
+# if arg was invalid
+if [ ! "$file" ]
+then
+   echo "tigger-show: error: invalid object $1" 1>&2
+   exit 1
+fi
+
+# start
+cd ".tigger" || exit
+
+if test -d "$commitNo" # if commit exists
+then
+    cd "$commitNo" || exit
+
+    if test -f "$file" 
+    then
+        cat "$file"
+    else
+        echo "tigger-show: error: '$file' not found in commit $commitNo" 1>&2
+        exit 1
+    fi
+elif [ ! "$commitNo" ] # if no commit specified, check for file in index
+then
+    cd "index" || exit
+    if test -f "$file"
+    then
+        cat "$file"
+    else
+        echo "tigger-show: error: '$file' not found in index" 1>&2
+        exit 1
+    fi
+else # if commit DNE
+    echo "tigger-show: error: unknown commit '$commitNo'" 1>&2
+    exit 1
+fi

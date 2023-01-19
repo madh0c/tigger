@@ -1,0 +1,12 @@
+#!/bin/dash
+
+if test -d ".tigger"
+then
+    echo "tigger-init: error: .tigger already exists" 1>&2
+    exit 1
+else    
+    mkdir ".tigger"
+    cd ".tigger" || exit
+    mkdir "index"
+    echo "Initialized empty tigger repository in .tigger" 1>&2
+fi

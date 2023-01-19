@@ -1,0 +1,91 @@
+#!/bin/dash
+
+if ! test -d ".tigger"
+then
+    echo "tigger-commit: error: tigger repository directory .tigger not found" 1>&2
+    exit 1
+fi
+
+# no arg
+if [ $# = 0 ]
+  then
+    echo "usage: tigger-commit [-a] -m commit-message" 1>&2
+    exit 1
+fi
+
+# -a functionality
+dashA=false
+for arg in "$@"
+do
+    if [ "$arg" = "-a" ]
+    then
+        dashA=true
+        break
+    fi
+done
+
+# update all files already in the index using contents from the current directory 
+if $dashA
+then
+    for rootFile in *
+    do        
+        for indexFile in .tigger/index/*
+        do
+            if [ ".tigger/index/$rootFile" = "$indexFile" ]
+            then
+                cp "$rootFile" ".tigger/index/"
+            fi
+        done        
+    done
+fi
+
+cd ".tigger" || exit
+
+# commit numbering scheme
+i=0
+while test -d "$i"
+do
+    i=$(( i + 1 ))
+done
+
+# no changes made since last commit
+if [ "$i" -gt 0 ]
+then
+    j=$(( i - 1 )) # last commit no
+    if diff -r "index" "$j" >/dev/null
+    then
+        echo "nothing to commit"
+        exit 0
+    fi
+fi
+
+# make subdir for current commit
+mkdir "$i" 
+
+# save the msg
+for msg in "$@"; do :; done
+
+# log the current commit
+logName="$i $msg"
+if test -f "logs.txt"
+then
+    # prepend the commit log to logs.txt
+    sed -i "1s/^/$logName\n/" "logs.txt" 
+else
+    # create logs.txt if it DNE
+    echo "$logName">"logs.txt"
+fi
+
+# if index is not empty, copy files from index to the commit instance folder in .tigger
+cd "index" || exit
+if [ "$(ls -A)" ]
+then
+    for file in *
+    do
+        cp "$file" ../"$i" 
+        # cp "$file" ../  # make a copy in repo as well 
+    done
+fi
+
+echo "Committed as commit $i"
+

@@ -1,0 +1,36 @@
+#!/bin/dash
+
+# repo DNE
+if ! test -d ".tigger"
+then
+    echo "tigger-add: error: tigger repository directory .tigger not found" 1>&2
+    exit 1
+fi
+
+# no arg
+if [ $# = 0 ]
+  then
+    echo "usage: tigger-add <filenames>" 1>&2
+    exit 1
+fi
+
+# file/s DNE
+for file in "$@"
+do
+    if ! test -f "$file" && ! test -f .tigger/index/"$file"
+    then
+        echo "tigger-add: error: can not open '$file'" 1>&2
+        exit 1     
+    fi
+done
+
+# if all files exist then add/rm them to index
+for file in "$@"
+do
+    if ! test -f "$file" && test -f .tigger/index/"$file"
+    then
+        rm .tigger/index/"$file"
+    else 
+        cp "$file" ".tigger/index" 
+    fi    
+done

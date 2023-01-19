@@ -1,0 +1,17 @@
+#!/bin/dash
+
+if ! test -d ".tigger"
+then
+    echo "tigger-log: error: tigger repository directory .tigger not found" 1>&2
+    exit 1
+fi
+
+# print logs
+cd ".tigger" || exit
+if test -f "logs.txt"
+then
+    cat "logs.txt"
+else
+    exit
+fi
+
